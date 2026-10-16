@@ -109,6 +109,7 @@ export class KEvent<Args extends any[] = any[]> {
         return new Promise((res) => this.addOnce(res));
     }
     trigger(...args: Args) {
+        if (this.handlers.size === 0) return;
         this.handlers.forEach((action) => {
             const result = action(...args);
             let cancel;
