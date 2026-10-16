@@ -1,6 +1,7 @@
 import type { Shader, Uniform } from "../assets/shader";
 import { IDENTITY_MATRIX } from "../constants/math";
 import { getCamTransform } from "../game/camera";
+import type { Color } from "../math/color";
 import {
     BlendMode,
     type ImageSource,
@@ -235,19 +236,17 @@ export class BatchRenderer {
             return;
         }
 
-        // If texture, shader, blend mode or uniforms (including fixed) have changed, flush first
-        // If the buffers are full, flush first
         if (
-            primitive !== this.curPrimitive
-            || tex !== this.curTex
-            || shader !== this.curShader
-            || ((this.curUniform != uniform)
-                && !deepEq(this.curUniform, uniform))
-            || blend !== this.curBlend
-            || fixed !== this.curFixed
-            || this.vqueue.length + vertices.length * this.stride
-                > this.maxVertices
-            || this.iqueue.length + indices.length > this.maxIndices
+            this.needsFlush(
+                primitive,
+                tex,
+                shader,
+                uniform,
+                blend,
+                fixed,
+                vertices.length,
+                indices.length,
+            )
         ) {
             this.flush(width, height);
             this.setBlend(blend);
@@ -266,6 +265,177 @@ export class BatchRenderer {
         this.curTex = tex;
         this.curUniform = uniform;
         this.curFixed = fixed;
+    }
+
+    pushQuad(
+        x0: number,
+        y0: number,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        x3: number,
+        y3: number,
+        u0: number,
+        v0: number,
+        u1: number,
+        v1: number,
+        u2: number,
+        v2: number,
+        u3: number,
+        v3: number,
+        color: Color,
+        opacity: number,
+        shader: Shader,
+        tex: Texture | null,
+        uniform: Uniform | null,
+        blend: BlendMode,
+        width: number,
+        height: number,
+        fixed: boolean,
+    ) {
+        const gl = this.ctx.gl;
+
+        if (this.picture) {
+            this.push(
+                gl.TRIANGLES,
+                [
+                    x0,
+                    y0,
+                    u0,
+                    v0,
+                    color.r / 255,
+                    color.g / 255,
+                    color.b / 255,
+                    opacity,
+                    x1,
+                    y1,
+                    u1,
+                    v1,
+                    color.r / 255,
+                    color.g / 255,
+                    color.b / 255,
+                    opacity,
+                    x2,
+                    y2,
+                    u2,
+                    v2,
+                    color.r / 255,
+                    color.g / 255,
+                    color.b / 255,
+                    opacity,
+                    x3,
+                    y3,
+                    u3,
+                    v3,
+                    color.r / 255,
+                    color.g / 255,
+                    color.b / 255,
+                    opacity,
+                ],
+                [0, 1, 3, 1, 2, 3],
+                shader,
+                tex,
+                uniform,
+                blend,
+                width,
+                height,
+                fixed,
+            );
+            return;
+        }
+
+        if (
+            this.needsFlush(
+                gl.TRIANGLES,
+                tex,
+                shader,
+                uniform,
+                blend,
+                fixed,
+                32,
+                6,
+            )
+        ) {
+            this.flush(width, height);
+            this.setBlend(blend);
+        }
+
+        const r = color.r / 255;
+        const g = color.g / 255;
+        const b = color.b / 255;
+        const indexOffset = this.vqueue.length / this.stride;
+
+        this.vqueue.push(
+            x0,
+            y0,
+            u0,
+            v0,
+            r,
+            g,
+            b,
+            opacity,
+            x1,
+            y1,
+            u1,
+            v1,
+            r,
+            g,
+            b,
+            opacity,
+            x2,
+            y2,
+            u2,
+            v2,
+            r,
+            g,
+            b,
+            opacity,
+            x3,
+            y3,
+            u3,
+            v3,
+            r,
+            g,
+            b,
+            opacity,
+        );
+        this.iqueue.push(
+            indexOffset,
+            indexOffset + 1,
+            indexOffset + 3,
+            indexOffset + 1,
+            indexOffset + 2,
+            indexOffset + 3,
+        );
+
+        this.curPrimitive = gl.TRIANGLES;
+        this.curShader = shader;
+        this.curTex = tex;
+        this.curUniform = uniform;
+        this.curFixed = fixed;
+    }
+
+    needsFlush(
+        primitive: GLenum,
+        tex: Texture | null,
+        shader: Shader,
+        uniform: Uniform | null,
+        blend: BlendMode,
+        fixed: boolean,
+        vertexCount: number,
+        indexCount: number,
+    ) {
+        return primitive !== this.curPrimitive
+            || tex !== this.curTex
+            || shader !== this.curShader
+            || ((this.curUniform != uniform)
+                && !deepEq(this.curUniform, uniform))
+            || blend !== this.curBlend
+            || fixed !== this.curFixed
+            || this.vqueue.length + vertexCount * this.stride
+                > this.maxVertices
+            || this.iqueue.length + indexCount > this.maxIndices;
     }
 
     flush(width: number, height: number) {

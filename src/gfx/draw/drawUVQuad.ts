@@ -1,11 +1,15 @@
+import { Asset } from "../../assets/asset";
+import { resolveShader } from "../../assets/shader";
 import { DEF_ANCHOR } from "../../constants/general";
 import { Color } from "../../math/color";
 import { Quad } from "../../math/math";
 import { Vec2 } from "../../math/Vec2";
+import { _k } from "../../shared";
 import { type Anchor, BlendMode, type RenderProps } from "../../types";
 import { anchorPt } from "../anchor";
 import type { Texture } from "../gfx";
 import {
+    height,
     multRotate,
     multScaleV,
     multSkewV,
@@ -13,8 +17,10 @@ import {
     multTranslateV,
     popTransform,
     pushTransform,
+    width,
 } from "../stack";
-import { drawRaw } from "./drawRaw";
+
+const DEF_QUAD = new Quad(0, 0, 1, 1);
 
 /**
  * How the UV Quad should look like.
@@ -69,9 +75,10 @@ export function drawUVQuad(opt: DrawUVQuadOpt) {
     const anchor = anchorPt(opt.anchor || DEF_ANCHOR);
     const offsetX = anchor.x * w * -0.5;
     const offsetY = anchor.y * h * -0.5;
-    const q = opt.quad || new Quad(0, 0, 1, 1);
+    const q = opt.quad || DEF_QUAD;
     const color = opt.color || Color.WHITE;
     const opacity = opt.opacity ?? 1;
+    const shader = resolveShader(opt.shader ?? _k.gfx.defShader);
 
     pushTransform();
     multTranslateV(opt.pos);
@@ -80,56 +87,39 @@ export function drawUVQuad(opt: DrawUVQuadOpt) {
     multSkewV(opt.skew);
     multTranslate(offsetX, offsetY);
 
-    drawRaw(
-        {
-            pos: [
-                -w / 2,
-                h / 2,
-                -w / 2,
-                -h / 2,
-                w / 2,
-                -h / 2,
-                w / 2,
-                h / 2,
-            ],
-            uv: [
-                opt.flipX ? q.x + q.w : q.x,
-                opt.flipY ? q.y : q.y + q.h,
-                opt.flipX ? q.x + q.w : q.x,
-                opt.flipY ? q.y + q.h : q.y,
-                opt.flipX ? q.x : q.x + q.w,
-                opt.flipY ? q.y + q.h : q.y,
-                opt.flipX ? q.x : q.x + q.w,
-                opt.flipY ? q.y : q.y + q.h,
-            ],
-            color: [
-                color.r,
-                color.g,
-                color.b,
-                color.r,
-                color.g,
-                color.b,
-                color.r,
-                color.g,
-                color.b,
-                color.r,
-                color.g,
-                color.b,
-            ],
-            opacity: [
-                opacity,
-                opacity,
-                opacity,
-                opacity,
-            ],
-        },
-        [0, 1, 3, 1, 2, 3],
-        opt.fixed,
-        opt.tex,
-        opt.shader,
-        opt.uniform ?? undefined,
-        opt.blend ?? BlendMode.Normal,
-    );
+    if (shader && !(shader instanceof Asset)) {
+        const t = _k.gfx.transform;
+        const halfW = w / 2;
+        const halfH = h / 2;
+
+        _k.gfx.renderer.pushQuad(
+            t.a * -halfW + t.c * halfH + t.e,
+            t.b * -halfW + t.d * halfH + t.f,
+            t.a * -halfW + t.c * -halfH + t.e,
+            t.b * -halfW + t.d * -halfH + t.f,
+            t.a * halfW + t.c * -halfH + t.e,
+            t.b * halfW + t.d * -halfH + t.f,
+            t.a * halfW + t.c * halfH + t.e,
+            t.b * halfW + t.d * halfH + t.f,
+            opt.flipX ? q.x + q.w : q.x,
+            opt.flipY ? q.y : q.y + q.h,
+            opt.flipX ? q.x + q.w : q.x,
+            opt.flipY ? q.y + q.h : q.y,
+            opt.flipX ? q.x : q.x + q.w,
+            opt.flipY ? q.y + q.h : q.y,
+            opt.flipX ? q.x : q.x + q.w,
+            opt.flipY ? q.y : q.y + q.h,
+            color,
+            opacity,
+            shader,
+            opt.tex ?? _k.gfx.whitePixel.tex,
+            opt.uniform ?? null,
+            opt.blend ?? BlendMode.Normal,
+            width(),
+            height(),
+            _k.gfx.fixed || (opt.fixed ?? false),
+        );
+    }
 
     popTransform();
 }
