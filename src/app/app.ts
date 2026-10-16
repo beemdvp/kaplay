@@ -874,7 +874,7 @@ export const initApp = (
 
         state.charInputted = [];
         state.isMouseMoved = false;
-        state.mouseDeltaPos = new Vec2(0);
+        state.mouseDeltaPos.set(0, 0);
 
         state.gamepadStates.forEach((s) => {
             s.buttonState.update();

@@ -1194,12 +1194,30 @@ export const GameObjRawPrototype: Omit<
             this.children[i].collect(objects);
         }
 
-        // Sort objects on layer, then z
-        objects.sort((o1, o2) => {
-            const l1 = o1._drawLayerIndex;
-            const l2 = o2._drawLayerIndex;
-            return (l1 - l2) || (o1.z ?? 0) - (o2.z ?? 0);
-        });
+        let ordered = true;
+        for (let i = 1; i < objects.length; i++) {
+            const prev = objects[i - 1];
+            const next = objects[i];
+            const l1 = prev._drawLayerIndex;
+            const l2 = next._drawLayerIndex;
+            if (
+                l1 === undefined
+                || l2 === undefined
+                || l1 > l2
+                || (l1 === l2 && (prev.z ?? 0) > (next.z ?? 0))
+            ) {
+                ordered = false;
+                break;
+            }
+        }
+
+        if (!ordered) {
+            objects.sort((o1, o2) => {
+                const l1 = o1._drawLayerIndex;
+                const l2 = o2._drawLayerIndex;
+                return (l1 - l2) || (o1.z ?? 0) - (o2.z ?? 0);
+            });
+        }
 
         // If this subtree is masking, the root is drawn into the mask, then the children are drawn
         if (this.mask) {

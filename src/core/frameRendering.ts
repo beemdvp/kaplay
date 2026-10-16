@@ -32,6 +32,10 @@ export const createFrameRenderer = (
     game: Game,
     pixelDensity: number,
 ) => {
+    let bgQuad: Quad | null = null;
+    let bgQuadWidth = 0;
+    let bgQuadHeight = 0;
+
     // start a rendering frame, reset some states
     function frameStart() {
         // clear backbuffer
@@ -42,16 +46,18 @@ export const createFrameRenderer = (
 
         // Iconic background
         if (!gfx.bgColor) {
+            const w = width();
+            const h = height();
+            if (!bgQuad || bgQuadWidth !== w || bgQuadHeight !== h) {
+                bgQuad = new Quad(0, 0, w / BG_GRID_SIZE, h / BG_GRID_SIZE);
+                bgQuadWidth = w;
+                bgQuadHeight = h;
+            }
             drawUnscaled(() => {
                 drawUVQuad({
-                    width: width(),
-                    height: height(),
-                    quad: new Quad(
-                        0,
-                        0,
-                        width() / BG_GRID_SIZE,
-                        height() / BG_GRID_SIZE,
-                    ),
+                    width: w,
+                    height: h,
+                    quad: bgQuad!,
                     tex: gfx.bgTex,
                     fixed: true,
                 });
