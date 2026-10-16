@@ -7,6 +7,7 @@ import type { StyledTextInfo } from "../formatText";
 import type { Texture } from "../gfx";
 import {
     multRotate,
+    multTranslate,
     multTranslateV,
     popTransform,
     pushTransform,
@@ -25,6 +26,7 @@ export type FormattedText = {
     width: number;
     height: number;
     chars: FormattedChar[];
+    groupedChars?: FormattedChar[];
     opt: DrawTextOpt;
     renderedText: string;
 };
@@ -56,29 +58,44 @@ export interface FormattedChar {
     styles: StyledTextInfo["charStyleMap"][number];
 }
 
+export function groupCharsByTexture(chars: FormattedChar[]): FormattedChar[] {
+    const groups = new Map<Texture, FormattedChar[]>();
+
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        const group = groups.get(ch.frame.tex);
+        if (group) {
+            group.push(ch);
+        }
+        else {
+            groups.set(ch.frame.tex, [ch]);
+        }
+    }
+
+    const grouped: FormattedChar[] = [];
+    groups.forEach((group) => {
+        for (let i = 0; i < group.length; i++) {
+            grouped.push(group[i]);
+        }
+    });
+    return grouped;
+}
+
 // cSpell: ignore ftext
 export function drawFormattedText(ftext: FormattedText) {
     pushTransform();
     multTranslateV(ftext.opt.pos!);
     multRotate(ftext.opt.angle!);
-    multTranslateV(
-        anchorPt(ftext.opt.anchor ?? "topleft").add(1, 1).scale(
-            ftext.width,
-            ftext.height,
-        ).scale(-0.5),
+    const anchor = anchorPt(ftext.opt.anchor ?? "topleft");
+    multTranslate(
+        (anchor.x + 1) * ftext.width * -0.5,
+        (anchor.y + 1) * ftext.height * -0.5,
     );
 
-    const charsByTexture = new Map<Texture, FormattedChar[]>();
+    const chars = ftext.groupedChars ?? groupCharsByTexture(ftext.chars);
 
-    ftext.chars.forEach((ch) => {
-        const chars = charsByTexture.get(ch.frame.tex) ?? [];
-        chars.push(ch);
-        charsByTexture.set(ch.frame.tex, chars);
-    });
-
-    const sortedChars = Array.from(charsByTexture.values()).flat();
-
-    sortedChars.forEach((ch) => {
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
         drawUVQuad({
             tex: ch.frame.tex,
             quad: ch.frame.q,
@@ -95,7 +112,7 @@ export function drawFormattedText(ftext: FormattedText) {
             shader: ch.shader ?? ftext.opt.shader,
             fixed: ftext.opt.fixed,
         });
-    });
+    }
 
     popTransform();
 }

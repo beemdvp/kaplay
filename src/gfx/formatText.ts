@@ -8,7 +8,11 @@ import { _k } from "../shared";
 import type { Outline } from "../types";
 import { runes } from "../utils/runes";
 import { alignPt } from "./anchor";
-import type { FormattedChar, FormattedText } from "./draw/drawFormattedText";
+import {
+    type FormattedChar,
+    type FormattedText,
+    groupCharsByTexture,
+} from "./draw/drawFormattedText";
 import type { CharTransform, DrawTextOpt } from "./draw/drawText";
 
 /**
@@ -303,6 +307,7 @@ export function formatText(opt: DrawTextOpt): FormattedText {
             width: 0,
             height: 0,
             chars: [],
+            groupedChars: [],
             opt: opt,
             renderedText: "",
         };
@@ -399,6 +404,7 @@ export function formatText(opt: DrawTextOpt): FormattedText {
                     width: 0,
                     height: 0,
                     chars: [],
+                    groupedChars: [],
                     opt: opt,
                     renderedText: "",
                 };
@@ -519,6 +525,7 @@ export function formatText(opt: DrawTextOpt): FormattedText {
         width: tw,
         height: th,
         chars: formattedChars,
+        groupedChars: groupCharsByTexture(formattedChars),
         opt,
         renderedText: text,
     };
